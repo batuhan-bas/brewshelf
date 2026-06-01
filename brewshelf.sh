@@ -52,6 +52,10 @@ init_data() {
   PKG_CAT[libssh]="Video & Media";        PKG_DESC[libssh]="SSH/SFTP library (used by FFmpeg)"
   PKG_CAT[libogg]="Video & Media";        PKG_DESC[libogg]="Ogg container format library"
   PKG_CAT[libsoxr]="Video & Media";       PKG_DESC[libsoxr]="High quality audio resampler"
+  PKG_CAT[camsnap]="Video & Media";       PKG_DESC[camsnap]="Grab frames, clips, or motion alerts from RTSP/ONVIF cams"
+  PKG_CAT[gifgrep]="Video & Media";       PKG_DESC[gifgrep]="Grep the GIF. Stick the landing"
+  PKG_CAT[songsee]="Video & Media";       PKG_DESC[songsee]="Spectral visualization CLI for audio files"
+  PKG_CAT[sag]="Video & Media";           PKG_DESC[sag]="Command-line ElevenLabs TTS with mac-style flags"
 
   # Development
   PKG_CAT[node]="Development";            PKG_DESC[node]="JavaScript runtime (Node.js)"
@@ -63,6 +67,15 @@ init_data() {
   PKG_CAT[pipx]="Development";            PKG_DESC[pipx]="Install Python CLI tools in isolated envs"
   PKG_CAT[dotnet]="Development";          PKG_DESC[dotnet]="Microsoft .NET SDK/runtime"
   PKG_CAT[gh]="Development";              PKG_DESC[gh]="GitHub official CLI"
+  PKG_CAT[git]="Development";             PKG_DESC[git]="Distributed revision control system"
+  PKG_CAT[go]="Development";              PKG_DESC[go]="Open source programming language"
+  PKG_CAT[python@3.11]="Development";     PKG_DESC[python@3.11]="Python 3.11 interpreted programming language"
+  PKG_CAT[python-tk@3.13]="Development";  PKG_DESC[python-tk@3.13]="Python interface to Tcl/Tk"
+  PKG_CAT[tcl-tk]="Development";          PKG_DESC[tcl-tk]="Tool Command Language"
+  PKG_CAT[xcodegen]="Development";        PKG_DESC[xcodegen]="Generate your Xcode project from a spec file"
+  PKG_CAT[axe]="Development";             PKG_DESC[axe]="CLI tool for interacting with iOS Simulators via accessibility and HID APIs"
+  PKG_CAT[opencode]="Development";        PKG_DESC[opencode]="AI coding agent, built for the terminal"
+  PKG_CAT[codex]="Development";           PKG_DESC[codex]="OpenAI's coding agent that runs in your terminal"
 
   # Database
   PKG_CAT[mongodb-community]="Database";       PKG_DESC[mongodb-community]="MongoDB document database"
@@ -90,12 +103,31 @@ init_data() {
   PKG_CAT[libnghttp2]="Security & Network";    PKG_DESC[libnghttp2]="HTTP/2 library"
   PKG_CAT[libnghttp3]="Security & Network";    PKG_DESC[libnghttp3]="HTTP/3 library"
   PKG_CAT[libngtcp2]="Security & Network";     PKG_DESC[libngtcp2]="QUIC transport protocol library"
+  PKG_CAT[cloudflared]="Security & Network";   PKG_DESC[cloudflared]="Cloudflare Tunnel client"
+  PKG_CAT[mtr]="Security & Network";           PKG_DESC[mtr]="Traceroute and ping in a single tool"
+  PKG_CAT[sshpass]="Security & Network";       PKG_DESC[sshpass]="Non-interactive SSH password authentication"
 
   # CLI Tools
   PKG_CAT[tree]="CLI Tools";         PKG_DESC[tree]="Display directory tree in terminal"
   PKG_CAT[speedtest-cli]="CLI Tools"; PKG_DESC[speedtest-cli]="Run internet speed test from terminal"
   PKG_CAT[mailsy]="CLI Tools";       PKG_DESC[mailsy]="Generate disposable email addresses in terminal"
   PKG_CAT[zeromq]="CLI Tools";       PKG_DESC[zeromq]="High-performance async messaging library"
+  PKG_CAT[bird]="CLI Tools";         PKG_DESC[bird]="Fast X CLI for tweeting, replying, and reading"
+  PKG_CAT[cliclick]="CLI Tools";     PKG_DESC[cliclick]="Tool for emulating mouse and keyboard events"
+  PKG_CAT[gogcli]="CLI Tools";       PKG_DESC[gogcli]="Google Suite CLI"
+  PKG_CAT[goplaces]="CLI Tools";     PKG_DESC[goplaces]="Modern Go client + CLI for the Google Places API"
+  PKG_CAT[himalaya]="CLI Tools";     PKG_DESC[himalaya]="CLI email client written in Rust"
+  PKG_CAT[imsg]="CLI Tools";         PKG_DESC[imsg]="Send and read iMessage / SMS from the terminal"
+  PKG_CAT[memo]="CLI Tools";         PKG_DESC[memo]="CLI app to manage your Apple Notes and Apple reminders"
+  PKG_CAT[mole]="CLI Tools";         PKG_DESC[mole]="Deep clean and optimize your Mac"
+  PKG_CAT[obsidian-cli]="CLI Tools"; PKG_DESC[obsidian-cli]="Interactive Obsidian vault manager in the terminal"
+  PKG_CAT[openhue-cli]="CLI Tools";  PKG_DESC[openhue-cli]="CLI for interacting with Philips Hue smart lighting systems"
+  PKG_CAT[ordercli]="CLI Tools";     PKG_DESC[ordercli]="Multi-provider order CLI (Foodora, Deliveroo)"
+  PKG_CAT[peekaboo]="CLI Tools";     PKG_DESC[peekaboo]="Lightning-fast macOS screenshots & AI vision analysis"
+  PKG_CAT[remindctl]="CLI Tools";    PKG_DESC[remindctl]="Fast CLI for Apple Reminders"
+  PKG_CAT[ripgrep]="CLI Tools";      PKG_DESC[ripgrep]="Search tool like grep and The Silver Searcher"
+  PKG_CAT[summarize]="CLI Tools";    PKG_DESC[summarize]="Multi-modal AI tool to extract and summarize content"
+  PKG_CAT[wacli]="CLI Tools";        PKG_DESC[wacli]="WhatsApp CLI built on whatsmeow"
 
   # Image & Graphics
   PKG_CAT[cairo]="Image & Graphics";      PKG_DESC[cairo]="2D graphics rendering library"
@@ -154,6 +186,9 @@ init_data() {
   PKG_CAT[libxdmcp]="System Libraries";  PKG_DESC[libxdmcp]="X11 display manager control protocol"
   PKG_CAT[xorgproto]="System Libraries"; PKG_DESC[xorgproto]="X.Org protocol headers"
   PKG_CAT[libmicrohttpd]="System Libraries"; PKG_DESC[libmicrohttpd]="Embeddable HTTP server library"
+  PKG_CAT[jansson]="System Libraries";   PKG_DESC[jansson]="C library for encoding, decoding, and manipulating JSON"
+  PKG_CAT[libiconv]="System Libraries";  PKG_DESC[libiconv]="Character set conversion library"
+  PKG_CAT[libtommath]="System Libraries"; PKG_DESC[libtommath]="C library for number theoretic multiple-precision integers"
 }
 
 category_color() {
@@ -234,6 +269,13 @@ print_shelf() {
     cask_desc[android-platform-tools]="ADB and fastboot for Android debugging"
     cask_desc[mongodb-compass]="Visual GUI for MongoDB"
     cask_desc[git-credential-manager]="Secure Git credential storage"
+    cask_desc[codex]="OpenAI's coding agent that runs in your terminal"
+    cask_desc[codexbar]="Menu bar usage monitor for Codex and Claude"
+    cask_desc[gcloud-cli]="Google Cloud CLI to manage resources and applications"
+    cask_desc[ngrok]="Reverse proxy, secure tunnels to localhost"
+    cask_desc[openinterminal]="Finder Toolbar app to open current directory in Terminal or Editor"
+    cask_desc[tigervnc]="Multi-platform VNC client and server"
+    cask_desc[tigervnc-viewer]="Multi-platform VNC client"
 
     print "${BOLD}${GREEN}▶ GUI Applications (Casks)${RESET}"
     print "${GREEN}$(printf '─%.0s' {1..50})${RESET}"
