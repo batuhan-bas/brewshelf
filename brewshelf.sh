@@ -7,22 +7,52 @@ if [ -z "$ZSH_VERSION" ]; then
   exit 1
 fi
 
+BREWSHELF_VERSION="1.0.0"
+
+usage() {
+  cat <<'EOF'
+brewshelf — your Homebrew packages, organized like a library shelf
+
+Usage: brewshelf [options]
+
+Options:
+  -a, --all       also show formulas installed as dependencies
+      --no-color  disable colors (also: NO_COLOR=1, or output not a terminal)
+  -h, --help      show this help
+  -v, --version   show the version
+EOF
+}
+
+SHOW_ALL=0
+USE_COLOR=1
+for arg in "$@"; do
+  case "$arg" in
+    -a|--all)     SHOW_ALL=1 ;;
+    --no-color)   USE_COLOR=0 ;;
+    -h|--help)    usage; exit 0 ;;
+    -v|--version) print "brewshelf $BREWSHELF_VERSION"; exit 0 ;;
+    *)
+      print -u2 "brewshelf: unknown option '$arg'"
+      print -u2 "Run 'brewshelf --help' for the list of options."
+      exit 2
+      ;;
+  esac
+done
+
 if ! command -v brew >/dev/null 2>&1; then
   print -u2 "brewshelf: Homebrew not found — install it from https://brew.sh"
   exit 1
 fi
 
-# Colors
-BOLD=$'\e[1m'
-RESET=$'\e[0m'
-DIM=$'\e[2m'
-CYAN=$'\e[36m'
-YELLOW=$'\e[33m'
-GREEN=$'\e[32m'
-MAGENTA=$'\e[35m'
-BLUE=$'\e[34m'
-RED=$'\e[31m'
-WHITE=$'\e[37m'
+# Colors — off for --no-color, NO_COLOR (https://no-color.org) or when piped/redirected
+[[ -n "${NO_COLOR:-}" || ! -t 1 ]] && USE_COLOR=0
+if (( USE_COLOR )); then
+  BOLD=$'\e[1m' RESET=$'\e[0m' DIM=$'\e[2m'
+  CYAN=$'\e[36m' YELLOW=$'\e[33m' GREEN=$'\e[32m' MAGENTA=$'\e[35m'
+  BLUE=$'\e[34m' RED=$'\e[31m' WHITE=$'\e[37m'
+else
+  BOLD="" RESET="" DIM="" CYAN="" YELLOW="" GREEN="" MAGENTA="" BLUE="" RED="" WHITE=""
+fi
 
 # Category of each known formula. Descriptions come from Homebrew itself (load_metadata).
 typeset -gA PKG_CAT
@@ -347,32 +377,23 @@ print_shelf() {
   print "${DIM}  Total: ${total} ${noun} installed${RESET}"
   if (( hidden > 0 )); then
     print "${DIM}  ${hidden} dependencies hidden — run 'brewshelf --all' to show them${RESET}"
-  elif [[ "$SHOW_ALL" == 1 && ${#FORMULA_IS_DEP[@]} -gt 0 ]]; then
+  elif [[ "$SHOW_ALL" == 1 && ${#FORMULA_IS_DEP[@]} -gt 0 ]] && (( USE_COLOR )); then
     print "${DIM}  Dimmed names were installed as dependencies${RESET}"
   fi
   echo ""
 }
 
-# Requested formulas in bold, dependencies (only shown with --all) dimmed
+# Requested formulas in bold, dependencies (only shown with --all) dimmed —
+# or labelled "(dependency)" when colors are off
 print_formula() {
   local desc="${FORMULA_DESC[$1]:-}"
   if [[ -n "${FORMULA_IS_DEP[$1]:-}" ]]; then
+    (( USE_COLOR )) || desc="(dependency) $desc"
     printf "  ${DIM}%-30s %s${RESET}\n" "$1" "$desc"
   else
     printf "  ${BOLD}%-30s${RESET} ${DIM}%s${RESET}\n" "$1" "$desc"
   fi
 }
-
-SHOW_ALL=0
-for arg in "$@"; do
-  case "$arg" in
-    -a|--all) SHOW_ALL=1 ;;
-    *)
-      print -u2 "brewshelf: unknown option '$arg' (available: --all)"
-      exit 2
-      ;;
-  esac
-done
 
 init_data
 load_metadata

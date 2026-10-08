@@ -53,6 +53,7 @@ run_brewshelf() {
     FAKE_BREW_JSON="$WORK/info.json" "${EXTRA_ENV[@]}" \
     "$shell" "$SCRIPT" "${args[@]}" 2>&1)
   STATUS=$?
+  OUT_RAW=$OUT
   # Strip ANSI colors so assertions match plain text
   OUT=$(print -r -- "$OUT" | sed $'s/\e\\[[0-9;]*m//g')
 }
@@ -70,6 +71,7 @@ check() {
 }
 
 contains()     { [[ "$OUT" == *"$1"* ]] }
+contains_raw() { [[ "$RAW" == *"$1"* ]] }
 not_contains() { [[ "$OUT" != *"$1"* ]] }
 status_is()    { (( STATUS == $1 )) }
 
@@ -117,15 +119,54 @@ run_brewshelf $'node\nlibvpx\nno-desc-dep' '' zsh --all
 check "--all: shows dependencies" contains "libvpx"
 check "--all: with their description" contains "VP8/VP9 video codec"
 check "--all: shows a dependency without description" contains "no-desc-dep"
-check "--all: explains dimmed names" contains "Dimmed names were installed as dependencies"
+check "--all: labels dependencies (no colors when piped)" contains "(dependency) VP8/VP9 video codec"
+check "--all: no dimmed-names note without colors" not_contains "Dimmed names"
 check "--all: no hidden note" not_contains "hidden"
 
 print "options"
 run_brewshelf $'node' '' zsh --bogus
 check "unknown option: exits 2" status_is 2
 check "unknown option: names it" contains "unknown option '--bogus'"
+check "unknown option: points to --help" contains "brewshelf --help"
+for flag in --help -h; do
+  run_brewshelf $'node' '' zsh $flag
+  check "$flag: exits 0" status_is 0
+  check "$flag: shows usage" contains "Usage: brewshelf [options]"
+done
+for flag in --version -v; do
+  run_brewshelf $'node' '' zsh $flag
+  check "$flag: prints the version" contains "brewshelf 1."
+done
+OUT=$(env -i HOME="$HOME" PATH="/usr/bin:/bin" zsh "$SCRIPT" --help 2>&1); STATUS=$?
+check "--help works without Homebrew" status_is 0
 run_brewshelf $'node\nlibvpx' '' zsh -a
 check "-a works like --all" contains "libvpx"
+
+print "colors"
+# run_tty <args...> — runs brewshelf in a pseudo-terminal, keeping ANSI codes in RAW
+run_tty() {
+  print -rn -- $'node\nlibvpx' > "$WORK/formulas"
+  print -rn -- '' > "$WORK/casks"
+  RAW=$(env -i HOME="$HOME" PATH="$TEST_PATH" TERM=xterm \
+    FAKE_BREW_FORMULAS="$WORK/formulas" FAKE_BREW_CASKS="$WORK/casks" \
+    FAKE_BREW_JSON="$WORK/info.json" "${EXTRA_ENV[@]}" \
+    script -q /dev/null zsh "$SCRIPT" "$@" < /dev/null 2>&1)
+}
+has_ansi() { [[ "$RAW" == *$'\e['* ]] }
+no_ansi()  { [[ "$RAW" != *$'\e['* ]] }
+run_brewshelf $'node' ''
+RAW=$OUT_RAW
+check "no colors when piped" no_ansi
+run_tty
+check "colors in a terminal" has_ansi
+run_tty --all
+check "terminal --all: explains dimmed names" contains_raw "Dimmed names were installed as dependencies"
+run_tty --no-color
+check "--no-color: no colors in a terminal" no_ansi
+EXTRA_ENV=(NO_COLOR=1)
+run_tty
+check "NO_COLOR: no colors in a terminal" no_ansi
+EXTRA_ENV=()
 
 print "JSON parsers"
 for parser in jq osascript; do
