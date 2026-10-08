@@ -31,7 +31,11 @@ cat > "$WORK/info.json" <<'JSON'
     { "name": "libvpx", "desc": "VP8/VP9 video codec",
       "installed": [{ "installed_on_request": false }] },
     { "name": "no-desc-dep", "desc": null,
-      "installed": [{ "installed_on_request": false }] }
+      "installed": [{ "installed_on_request": false }] },
+    { "name": "sdl2-compat", "desc": "SDL2 compatibility layer", "aliases": ["sdl2"],
+      "installed": [{ "installed_on_request": false }] },
+    { "name": "new-name", "desc": "Formula that was renamed", "oldnames": ["old-name"],
+      "installed": [{ "installed_on_request": true }] }
   ],
   "casks": [
     { "token": "ngrok", "desc": "Reverse proxy, secure introspectable tunnels to localhost" }
@@ -104,6 +108,20 @@ run_brewshelf $'node' ''
 check "brew info failing: exits 0" status_is 0
 check "brew info failing: still lists packages" contains "node"
 EXTRA_ENV=()
+
+print "renamed formulas"
+# `brew list` shows the name a formula was installed under; brew info uses the current name
+run_brewshelf $'node\nsdl2\nold-name' ''
+check "alias: recognized as a dependency and hidden" not_contains "sdl2"
+check "oldname: described" contains "Formula that was renamed"
+run_brewshelf $'node\nsdl2' '' zsh --all
+check "alias: described with --all" contains "(dependency) SDL2 compatibility layer"
+
+print "formatting"
+run_brewshelf $'node\nuntrusted-formula\nno-desc-dep' $'ngrok' zsh --all
+no_trailing_space() { ! print -r -- "$OUT" | grep -qE ' +$' }
+check "no line ends with whitespace" no_trailing_space
+check "dependency without description: label only" contains "(dependency)"
 
 print "dependencies"
 run_brewshelf $'node\nlibvpx\nno-desc-dep' ''
@@ -180,6 +198,8 @@ for parser in jq osascript; do
   check "$parser: cask description" contains "Reverse proxy, secure introspectable tunnels to localhost"
   run_brewshelf $'node\nlibvpx\nno-desc-dep' ''
   check "$parser: hides dependencies" contains "2 dependencies hidden"
+  run_brewshelf $'node\nsdl2' ''
+  check "$parser: resolves aliases" contains "1 dependency hidden"
 done
 EXTRA_ENV=()
 

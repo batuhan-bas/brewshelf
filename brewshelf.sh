@@ -7,7 +7,7 @@ if [ -z "$ZSH_VERSION" ]; then
   exit 1
 fi
 
-BREWSHELF_VERSION="1.0.0"
+BREWSHELF_VERSION="1.0.1"
 
 usage() {
   cat <<'EOF'
@@ -66,6 +66,8 @@ SEP=$'\x1f'
 
 # Reads all installed packages from `brew info --json=v2 --installed` and prints one row
 # per package: kind, name, description, installed on request (1/0), separated by $SEP.
+# A renamed formula gets a row for each of its old names and aliases too: `brew list`
+# keeps showing the name it was installed under (e.g. sdl2, now sdl2-compat).
 # Uses jq when available (bundled with macOS 15+), otherwise JavaScript via osascript,
 # which every macOS has. BREWSHELF_JSON_PARSER=jq|osascript forces one (used by the tests).
 json_to_rows() {
@@ -77,8 +79,10 @@ json_to_rows() {
   if [[ "$parser" == jq ]]; then
     jq -r '
       def clean: (. // "") | gsub("[\t\n\r\u001f]+"; " ");
-      (.formulae[]? | ["formula", .name, (.desc | clean),
-                       (if any(.installed[]?; .installed_on_request) then "1" else "0" end)]),
+      (.formulae[]? | . as $f
+        | ([$f.name] + ($f.oldnames // []) + ($f.aliases // []) | unique)[]
+        | ["formula", ., ($f.desc | clean),
+           (if any($f.installed[]?; .installed_on_request) then "1" else "0" end)]),
       (.casks[]?    | ["cask", .token, (.desc | clean), "1"])
       | join("\u001f")'
   else
@@ -89,7 +93,9 @@ json_to_rows() {
       const clean = (s) => (s || "").replace(/[\t\n\r\x1f]+/g, " ");
       const onRequest = (f) => ((f.installed || []).some((i) => i.installed_on_request) ? "1" : "0");
       [
-        ...(info.formulae || []).map((f) => ["formula", f.name, clean(f.desc), onRequest(f)].join("\x1f")),
+        ...(info.formulae || []).flatMap((f) =>
+          [...new Set([f.name, ...(f.oldnames || []), ...(f.aliases || [])])]
+            .map((name) => ["formula", name, clean(f.desc), onRequest(f)].join("\x1f"))),
         ...(info.casks || []).map((c) => ["cask", c.token, clean(c.desc), "1"].join("\x1f")),
       ].join("\n");'
   fi
@@ -198,6 +204,8 @@ init_data() {
   PKG_CAT[helm]="Development"
   PKG_CAT[awscli]="Development"
   PKG_CAT[azure-cli]="Development"
+  PKG_CAT[actionlint]="Development"
+  PKG_CAT[shellcheck]="Development"
 
   # Database
   PKG_CAT[mongodb-community]="Database"
@@ -283,6 +291,7 @@ init_data() {
   PKG_CAT[eza]="CLI Tools"
   PKG_CAT[fd]="CLI Tools"
   PKG_CAT[ollama]="CLI Tools"
+  PKG_CAT[brewshelf]="CLI Tools"
 
   # Image & Graphics
   PKG_CAT[cairo]="Image & Graphics"
@@ -433,7 +442,7 @@ print_shelf() {
     print "${BOLD}${GREEN}▶ GUI Applications (Casks)${RESET}"
     print "${GREEN}$(printf '─%.0s' {1..50})${RESET}"
     for cask in "${casks[@]}"; do
-      printf "  ${BOLD}%-30s${RESET} ${DIM}%s${RESET}\n" "$cask" "${CASK_DESC[$cask]:-}"
+      print_row "$BOLD" "$cask" "${CASK_DESC[$cask]:-}"
     done
     echo ""
   fi
@@ -443,7 +452,9 @@ print_shelf() {
   (( total == 1 )) && noun="package"
   print "${DIM}  Total: ${total} ${noun} installed${RESET}"
   if (( hidden > 0 )); then
-    print "${DIM}  ${hidden} dependencies hidden — run 'brewshelf --all' to show them${RESET}"
+    local dep_noun="dependencies"
+    (( hidden == 1 )) && dep_noun="dependency"
+    print "${DIM}  ${hidden} ${dep_noun} hidden — run 'brewshelf --all' to show them${RESET}"
   elif [[ "$SHOW_ALL" == 1 && ${#FORMULA_IS_DEP[@]} -gt 0 ]] && (( USE_COLOR )); then
     print "${DIM}  Dimmed names were installed as dependencies${RESET}"
   fi
@@ -455,10 +466,20 @@ print_shelf() {
 print_formula() {
   local desc="${FORMULA_DESC[$1]:-}"
   if [[ -n "${FORMULA_IS_DEP[$1]:-}" ]]; then
-    (( USE_COLOR )) || desc="(dependency) $desc"
-    printf "  ${DIM}%-30s %s${RESET}\n" "$1" "$desc"
+    (( USE_COLOR )) || desc="(dependency)${desc:+ $desc}"
+    print_row "$DIM" "$1" "$desc"
   else
-    printf "  ${BOLD}%-30s${RESET} ${DIM}%s${RESET}\n" "$1" "$desc"
+    print_row "$BOLD" "$1" "$desc"
+  fi
+}
+
+# print_row <name style> <name> <description> — names are padded into a column only when a
+# description follows, so lines never end in whitespace
+print_row() {
+  if [[ -z "$3" ]]; then
+    printf "  %s%s%s\n" "$1" "$2" "$RESET"
+  else
+    printf "  %s%-30s%s %s%s%s\n" "$1" "$2" "$RESET" "$DIM" "$3" "$RESET"
   fi
 }
 
