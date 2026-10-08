@@ -24,12 +24,18 @@ BLUE=$'\e[34m'
 RED=$'\e[31m'
 WHITE=$'\e[37m'
 
-# Category of each known formula. Descriptions come from Homebrew itself (load_descriptions).
+# Category of each known formula. Descriptions come from Homebrew itself (load_metadata).
 typeset -gA PKG_CAT
 typeset -gA FORMULA_DESC CASK_DESC
+# Formulas installed only as a dependency of another formula (value: 1)
+typeset -gA FORMULA_IS_DEP
 
-# Reads the descriptions of all installed packages from `brew info --json=v2 --installed`
-# and prints them as "formula|cask <TAB> name <TAB> description" lines.
+# Field separator for json_to_rows: ASCII "unit separator". Unlike a tab it is not
+# whitespace for `read`, so an empty description does not shift the following fields.
+SEP=$'\x1f'
+
+# Reads all installed packages from `brew info --json=v2 --installed` and prints one row
+# per package: kind, name, description, installed on request (1/0), separated by $SEP.
 # Uses jq when available (bundled with macOS 15+), otherwise JavaScript via osascript,
 # which every macOS has. BREWSHELF_JSON_PARSER=jq|osascript forces one (used by the tests).
 json_to_rows() {
@@ -40,32 +46,38 @@ json_to_rows() {
 
   if [[ "$parser" == jq ]]; then
     jq -r '
-      def clean: (. // "") | gsub("[\t\n\r]+"; " ");
-      (.formulae[]? | ["formula", .name, (.desc | clean)]),
-      (.casks[]?    | ["cask", .token, (.desc | clean)])
-      | join("\t")'
+      def clean: (. // "") | gsub("[\t\n\r\u001f]+"; " ");
+      (.formulae[]? | ["formula", .name, (.desc | clean),
+                       (if any(.installed[]?; .installed_on_request) then "1" else "0" end)]),
+      (.casks[]?    | ["cask", .token, (.desc | clean), "1"])
+      | join("\u001f")'
   else
     osascript -l JavaScript -e '
       ObjC.import("Foundation");
       const data = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile;
       const info = JSON.parse($.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding).js);
-      const clean = (s) => (s || "").replace(/[\t\n\r]+/g, " ");
+      const clean = (s) => (s || "").replace(/[\t\n\r\x1f]+/g, " ");
+      const onRequest = (f) => ((f.installed || []).some((i) => i.installed_on_request) ? "1" : "0");
       [
-        ...(info.formulae || []).map((f) => ["formula", f.name, clean(f.desc)].join("\t")),
-        ...(info.casks || []).map((c) => ["cask", c.token, clean(c.desc)].join("\t")),
+        ...(info.formulae || []).map((f) => ["formula", f.name, clean(f.desc), onRequest(f)].join("\x1f")),
+        ...(info.casks || []).map((c) => ["cask", c.token, clean(c.desc), "1"].join("\x1f")),
       ].join("\n");'
   fi
 }
 
 # Packages from untrusted taps or removed from Homebrew are missing from the JSON;
-# they are still listed (from `brew list`), just without a description.
-load_descriptions() {
-  local row kind name desc
+# they are still listed (from `brew list`), without a description and treated as
+# installed on request — better to show a dependency than to hide something you installed.
+load_metadata() {
+  local row kind name desc on_request
   for row in ${(f)"$(brew info --json=v2 --installed 2>/dev/null | json_to_rows 2>/dev/null)"}; do
-    IFS=$'\t' read -r kind name desc <<< "$row"
+    IFS=$SEP read -r kind name desc on_request <<< "$row"
     case "$kind" in
-      formula) FORMULA_DESC[$name]=$desc ;;
-      cask)    CASK_DESC[$name]=$desc ;;
+      formula)
+        FORMULA_DESC[$name]=$desc
+        [[ "$on_request" == 0 ]] && FORMULA_IS_DEP[$name]=1
+        ;;
+      cask) CASK_DESC[$name]=$desc ;;
     esac
   done
 }
@@ -274,8 +286,14 @@ print_shelf() {
 
   typeset -A cat_items
   local -a unknown
+  local -i hidden=0
 
   for pkg in "${formulas[@]}"; do
+    # Dependencies are hidden unless --all: they are what makes `brew list` unreadable
+    if [[ -n "${FORMULA_IS_DEP[$pkg]:-}" && "$SHOW_ALL" != 1 ]]; then
+      (( hidden++ ))
+      continue
+    fi
     local cat="${PKG_CAT[$pkg]:-}"
     if [[ -n "$cat" ]]; then
       cat_items[$cat]+="$pkg "
@@ -300,16 +318,16 @@ print_shelf() {
     print "${BOLD}${color}▶ ${cat}${RESET}"
     print "${color}$(printf '─%.0s' {1..50})${RESET}"
     for pkg in ${=cat_items[$cat]}; do
-      printf "  ${BOLD}%-30s${RESET} ${DIM}%s${RESET}\n" "$pkg" "${FORMULA_DESC[$pkg]:-}"
+      print_formula "$pkg"
     done
     echo ""
   done
 
   if [[ ${#unknown[@]} -gt 0 ]]; then
-    print "${BOLD}${DIM}▶ Other / Dependencies${RESET}"
-    print "${DIM}$(printf '─%.0s' {1..50})${RESET}"
+    print "${BOLD}${WHITE}▶ Other${RESET}"
+    print "${WHITE}$(printf '─%.0s' {1..50})${RESET}"
     for pkg in "${unknown[@]}"; do
-      printf "  ${DIM}%-30s %s${RESET}\n" "$pkg" "${FORMULA_DESC[$pkg]:-}"
+      print_formula "$pkg"
     done
     echo ""
   fi
@@ -327,9 +345,35 @@ print_shelf() {
   local noun="packages"
   (( total == 1 )) && noun="package"
   print "${DIM}  Total: ${total} ${noun} installed${RESET}"
+  if (( hidden > 0 )); then
+    print "${DIM}  ${hidden} dependencies hidden — run 'brewshelf --all' to show them${RESET}"
+  elif [[ "$SHOW_ALL" == 1 && ${#FORMULA_IS_DEP[@]} -gt 0 ]]; then
+    print "${DIM}  Dimmed names were installed as dependencies${RESET}"
+  fi
   echo ""
 }
 
+# Requested formulas in bold, dependencies (only shown with --all) dimmed
+print_formula() {
+  local desc="${FORMULA_DESC[$1]:-}"
+  if [[ -n "${FORMULA_IS_DEP[$1]:-}" ]]; then
+    printf "  ${DIM}%-30s %s${RESET}\n" "$1" "$desc"
+  else
+    printf "  ${BOLD}%-30s${RESET} ${DIM}%s${RESET}\n" "$1" "$desc"
+  fi
+}
+
+SHOW_ALL=0
+for arg in "$@"; do
+  case "$arg" in
+    -a|--all) SHOW_ALL=1 ;;
+    *)
+      print -u2 "brewshelf: unknown option '$arg' (available: --all)"
+      exit 2
+      ;;
+  esac
+done
+
 init_data
-load_descriptions
+load_metadata
 print_shelf

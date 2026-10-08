@@ -18,11 +18,20 @@ OUT="" STATUS=0
 cat > "$WORK/info.json" <<'JSON'
 {
   "formulae": [
-    { "name": "node", "desc": "Open-source, cross-platform JavaScript runtime environment" },
-    { "name": "ffmpeg", "desc": "Play, record, convert, and stream audio and video" },
-    { "name": "sqlite", "desc": "Command-line interface for SQLite" },
-    { "name": "some-unknown-formula", "desc": "Formula without a category" },
-    { "name": "multiline", "desc": "First line\tand a tab\nsecond line" }
+    { "name": "node", "desc": "Open-source, cross-platform JavaScript runtime environment",
+      "installed": [{ "installed_on_request": true }] },
+    { "name": "ffmpeg", "desc": "Play, record, convert, and stream audio and video",
+      "installed": [{ "installed_on_request": true }] },
+    { "name": "sqlite", "desc": "Command-line interface for SQLite",
+      "installed": [{ "installed_on_request": true }] },
+    { "name": "some-unknown-formula", "desc": "Formula without a category",
+      "installed": [{ "installed_on_request": true }] },
+    { "name": "multiline", "desc": "First line\tand a tab\nsecond line",
+      "installed": [{ "installed_on_request": true }] },
+    { "name": "libvpx", "desc": "VP8/VP9 video codec",
+      "installed": [{ "installed_on_request": false }] },
+    { "name": "no-desc-dep", "desc": null,
+      "installed": [{ "installed_on_request": false }] }
   ],
   "casks": [
     { "token": "ngrok", "desc": "Reverse proxy, secure introspectable tunnels to localhost" }
@@ -33,15 +42,16 @@ JSON
 # Extra environment for the next run_brewshelf call, e.g. (BREWSHELF_JSON_PARSER=osascript)
 typeset -a EXTRA_ENV=()
 
-# run_brewshelf <formulas> <casks> [shell] — lists are newline-separated names
+# run_brewshelf <formulas> <casks> [shell [args...]] — lists are newline-separated names
 run_brewshelf() {
   print -rn -- "$1" > "$WORK/formulas"
   print -rn -- "$2" > "$WORK/casks"
   local shell=${3:-zsh}
+  local -a args=("${@:4}")
   OUT=$(env -i HOME="$HOME" PATH="$TEST_PATH" \
     FAKE_BREW_FORMULAS="$WORK/formulas" FAKE_BREW_CASKS="$WORK/casks" \
     FAKE_BREW_JSON="$WORK/info.json" "${EXTRA_ENV[@]}" \
-    "$shell" "$SCRIPT" 2>&1)
+    "$shell" "$SCRIPT" "${args[@]}" 2>&1)
   STATUS=$?
   # Strip ANSI colors so assertions match plain text
   OUT=$(print -r -- "$OUT" | sed $'s/\e\\[[0-9;]*m//g')
@@ -77,7 +87,7 @@ check "counts formulas + casks" contains "Total: 4 packages installed"
 
 print "unknown packages"
 run_brewshelf $'node\nsome-unknown-formula' ''
-check "puts unknown formulas under Other" contains "▶ Other / Dependencies"
+check "puts unknown formulas under Other" contains "▶ Other"
 check "lists the unknown formula" contains "some-unknown-formula"
 check "describes the unknown formula too" contains "Formula without a category"
 
@@ -93,6 +103,30 @@ check "brew info failing: exits 0" status_is 0
 check "brew info failing: still lists packages" contains "node"
 EXTRA_ENV=()
 
+print "dependencies"
+run_brewshelf $'node\nlibvpx\nno-desc-dep' ''
+check "hides dependencies by default" not_contains "libvpx"
+check "hides a dependency without description" not_contains "no-desc-dep"
+check "still counts them" contains "Total: 3 packages installed"
+check "says how many are hidden" contains "2 dependencies hidden — run 'brewshelf --all'"
+check "keeps requested formulas" contains "node"
+run_brewshelf $'node\nuntrusted-formula' ''
+check "shows formulas missing from brew info (cannot tell)" contains "untrusted-formula"
+check "no hidden note when nothing is hidden" not_contains "hidden"
+run_brewshelf $'node\nlibvpx\nno-desc-dep' '' zsh --all
+check "--all: shows dependencies" contains "libvpx"
+check "--all: with their description" contains "VP8/VP9 video codec"
+check "--all: shows a dependency without description" contains "no-desc-dep"
+check "--all: explains dimmed names" contains "Dimmed names were installed as dependencies"
+check "--all: no hidden note" not_contains "hidden"
+
+print "options"
+run_brewshelf $'node' '' zsh --bogus
+check "unknown option: exits 2" status_is 2
+check "unknown option: names it" contains "unknown option '--bogus'"
+run_brewshelf $'node\nlibvpx' '' zsh -a
+check "-a works like --all" contains "libvpx"
+
 print "JSON parsers"
 for parser in jq osascript; do
   if [[ $parser == jq ]] && ! PATH=$TEST_PATH command -v jq >/dev/null; then
@@ -103,6 +137,8 @@ for parser in jq osascript; do
   run_brewshelf $'node\nsome-unknown-formula' $'ngrok'
   check "$parser: formula description" contains "Open-source, cross-platform JavaScript runtime environment"
   check "$parser: cask description" contains "Reverse proxy, secure introspectable tunnels to localhost"
+  run_brewshelf $'node\nlibvpx\nno-desc-dep' ''
+  check "$parser: hides dependencies" contains "2 dependencies hidden"
 done
 EXTRA_ENV=()
 
