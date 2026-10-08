@@ -75,16 +75,21 @@ brewshelf
 
 Unknown packages (not in the built-in catalog) appear under **Other / Dependencies**.
 
-## Adding descriptions
+## Descriptions
 
-The package catalog lives in `brewshelf.sh` inside the `init_data()` function. Adding a new entry is one line:
+Every description comes from Homebrew itself (`brew info --json=v2 --installed`), so all packages
+are described — including the ones brewshelf has no category for. Packages from
+[untrusted taps](https://docs.brew.sh/Taps) are still listed, just without a description.
+
+## Adding categories
+
+Categories live in `brewshelf.sh` inside the `init_data()` function. Adding a package is one line:
 
 ```bash
 PKG_CAT[package-name]="Category Name"
-PKG_DESC[package-name]="What it does"
 ```
 
-PRs for missing packages are welcome.
+PRs for uncategorized packages are welcome.
 
 ## License
 

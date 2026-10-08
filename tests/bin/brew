@@ -1,8 +1,13 @@
 #!/bin/sh
 # Fake `brew` for tests. Package lists come from the files named in
-# FAKE_BREW_FORMULAS / FAKE_BREW_CASKS (one name per line).
+# FAKE_BREW_FORMULAS / FAKE_BREW_CASKS (one name per line), package metadata
+# from the JSON file in FAKE_BREW_JSON. FAKE_BREW_INFO_FAILS=1 makes `brew info` fail.
 case "$1 $2" in
   "list --formula") cat "$FAKE_BREW_FORMULAS" 2>/dev/null ;;
   "list --cask")    cat "$FAKE_BREW_CASKS" 2>/dev/null ;;
+  "info --json=v2")
+    [ "$FAKE_BREW_INFO_FAILS" = 1 ] && { echo "Error: something went wrong" >&2; exit 1; }
+    cat "$FAKE_BREW_JSON" 2>/dev/null || echo '{"formulae":[],"casks":[]}'
+    ;;
   *) echo "fake brew: unsupported command: $*" >&2; exit 1 ;;
 esac
