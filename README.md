@@ -50,8 +50,13 @@ sudo chmod +x /usr/local/bin/brewshelf
 **3. Run**
 
 ```bash
-brewshelf
+brewshelf        # what you installed
+brewshelf --all  # plus everything installed as a dependency
 ```
+
+By default brewshelf shows only what you installed yourself: formulas installed as a dependency
+of another formula (codecs, libraries, …) are hidden and counted at the bottom. On a typical
+machine that turns a 160-line list into the ~35 packages you actually chose.
 
 ## Requirements
 
@@ -73,7 +78,7 @@ brewshelf
 | System Libraries | Dim | Low-level dependencies |
 | GUI Applications | Green | Homebrew casks |
 
-Unknown packages (not in the built-in catalog) appear under **Other / Dependencies**.
+Packages without a category appear under **Other**.
 
 ## Descriptions
 
