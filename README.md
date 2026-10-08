@@ -58,6 +58,13 @@ By default brewshelf shows only what you installed yourself: formulas installed 
 of another formula (codecs, libraries, …) are hidden and counted at the bottom. On a typical
 machine that turns a 160-line list into the ~35 packages you actually chose.
 
+| Option | |
+|---|---|
+| `-a`, `--all` | also show formulas installed as dependencies |
+| `--no-color` | disable colors — also off with `NO_COLOR=1` or when the output is piped |
+| `-h`, `--help` | show the help |
+| `-v`, `--version` | show the version |
+
 ## Requirements
 
 - macOS (tested on macOS Sequoia)
