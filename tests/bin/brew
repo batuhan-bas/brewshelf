@@ -1,0 +1,8 @@
+#!/bin/sh
+# Fake `brew` for tests. Package lists come from the files named in
+# FAKE_BREW_FORMULAS / FAKE_BREW_CASKS (one name per line).
+case "$1 $2" in
+  "list --formula") cat "$FAKE_BREW_FORMULAS" 2>/dev/null ;;
+  "list --cask")    cat "$FAKE_BREW_CASKS" 2>/dev/null ;;
+  *) echo "fake brew: unsupported command: $*" >&2; exit 1 ;;
+esac

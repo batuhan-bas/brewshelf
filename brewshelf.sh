@@ -1,5 +1,17 @@
 #!/usr/bin/env zsh
 
+# Must stay POSIX-compatible up to this check: `bash brewshelf.sh` or `sh brewshelf.sh`
+# would otherwise fail later with a cryptic zsh syntax error
+if [ -z "$ZSH_VERSION" ]; then
+  echo "brewshelf: this script requires zsh — run it as 'zsh brewshelf.sh' or './brewshelf.sh'" >&2
+  exit 1
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  print -u2 "brewshelf: Homebrew not found — install it from https://brew.sh"
+  exit 1
+fi
+
 # Colors
 BOLD=$'\e[1m'
 RESET=$'\e[0m'
@@ -207,8 +219,15 @@ category_color() {
 
 print_shelf() {
   local -a formulas casks
-  formulas=("${(@f)$(brew list --formula 2>/dev/null)}")
-  casks=("${(@f)$(brew list --cask 2>/dev/null)}")
+  # ${(f)...} unquoted drops empty lines, so an empty list becomes an empty array
+  # (the quoted "${(@f)...}" form yields one empty element instead)
+  formulas=(${(f)"$(brew list --formula 2>/dev/null)"})
+  casks=(${(f)"$(brew list --cask 2>/dev/null)"})
+
+  if (( ${#formulas[@]} == 0 && ${#casks[@]} == 0 )); then
+    print "No Homebrew packages installed."
+    return 0
+  fi
 
   typeset -A cat_items
   local -a unknown
@@ -234,17 +253,7 @@ print_shelf() {
 
   for cat in "${order[@]}"; do
     [[ -z "${cat_items[$cat]:-}" ]] && continue
-    case "$cat" in
-      "Video & Media")      color="$MAGENTA" ;;
-      "Development")        color="$CYAN" ;;
-      "Database")           color="$YELLOW" ;;
-      "Security & Network") color="$RED" ;;
-      "CLI Tools")          color="$GREEN" ;;
-      "Image & Graphics")   color="$BLUE" ;;
-      "Compression & Data") color="$WHITE" ;;
-      "System Libraries")   color="$DIM" ;;
-      *)                    color="$WHITE" ;;
-    esac
+    color="$(category_color "$cat")"
     print "${BOLD}${color}▶ ${cat}${RESET}"
     print "${color}$(printf '─%.0s' {1..50})${RESET}"
     for pkg in ${=cat_items[$cat]}; do
@@ -287,7 +296,9 @@ print_shelf() {
   fi
 
   local total=$(( ${#formulas[@]} + ${#casks[@]} ))
-  print "${DIM}  Total: ${total} packages installed${RESET}"
+  local noun="packages"
+  (( total == 1 )) && noun="package"
+  print "${DIM}  Total: ${total} ${noun} installed${RESET}"
   echo ""
 }
 
